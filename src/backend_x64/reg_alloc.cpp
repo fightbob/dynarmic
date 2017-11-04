@@ -4,6 +4,8 @@
  * General Public License version 2 or any later version.
  */
 
+#define XBYAK_ENABLE_OMITTED_OPERAND
+
 #include <algorithm>
 #include <vector>
 
