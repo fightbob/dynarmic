@@ -42,17 +42,17 @@ static bool IsSameHostLocClass(HostLoc a, HostLoc b) {
 
 static void EmitMove(BlockOfCode* code, HostLoc to, HostLoc from) {
     if (HostLocIsXMM(to) && HostLocIsXMM(from)) {
-        code->movaps(HostLocToXmm(to), HostLocToXmm(from));
+        AVX(code, movaps, HostLocToXmm(to), HostLocToXmm(from));
     } else if (HostLocIsGPR(to) && HostLocIsGPR(from)) {
         code->mov(HostLocToReg64(to), HostLocToReg64(from));
     } else if (HostLocIsXMM(to) && HostLocIsGPR(from)) {
-        code->movq(HostLocToXmm(to), HostLocToReg64(from));
+        AVX(code, movq, HostLocToXmm(to), HostLocToReg64(from));
     } else if (HostLocIsGPR(to) && HostLocIsXMM(from)) {
-        code->movq(HostLocToReg64(to), HostLocToXmm(from));
+        AVX(code, movq, HostLocToReg64(to), HostLocToXmm(from));
     } else if (HostLocIsXMM(to) && HostLocIsSpill(from)) {
-        code->movsd(HostLocToXmm(to), SpillToOpArg(from));
+        AVX(code, movsd, HostLocToXmm(to), SpillToOpArg(from));
     } else if (HostLocIsSpill(to) && HostLocIsXMM(from)) {
-        code->movsd(SpillToOpArg(to), HostLocToXmm(from));
+        AVX(code, movsd, SpillToOpArg(to), HostLocToXmm(from));
     } else if (HostLocIsGPR(to) && HostLocIsSpill(from)) {
         code->mov(HostLocToReg64(to), SpillToOpArg(from));
     } else if (HostLocIsSpill(to) && HostLocIsGPR(from)) {
@@ -412,9 +412,9 @@ HostLoc RegAlloc::LoadImmediate(IR::Value imm, HostLoc host_loc) {
         Xbyak::Xmm reg = HostLocToXmm(host_loc);
         u64 imm_value = ImmediateToU64(imm);
         if (imm_value == 0)
-            code->pxor(reg, reg);
+            AVX(code, pxor, reg, reg);
         else
-            code->movdqa(reg, code->MConst(imm_value)); // TODO: movaps/movapd more appropriate sometimes
+            AVX(code, movdqa, reg, code->MConst(imm_value)); // TODO: movaps/movapd more appropriate sometimes
         return host_loc;
     }
 
