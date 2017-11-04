@@ -4,6 +4,8 @@
  * General Public License version 2 or any later version.
  */
 
+#define XBYAK_ENABLE_OMITTED_OPERAND
+
 #include <unordered_map>
 
 #include <dynarmic/coprocessor.h>
@@ -154,7 +156,7 @@ void EmitX64::EmitGetExtendedRegister32(RegAlloc& reg_alloc, IR::Block&, IR::Ins
     ASSERT(Arm::IsSingleExtReg(reg));
 
     Xbyak::Xmm result = reg_alloc.ScratchXmm();
-    code->movss(result, MJitStateExtReg(reg));
+    AVX(code, movss, result, MJitStateExtReg(reg));
     reg_alloc.DefineValue(inst, result);
 }
 
@@ -163,7 +165,7 @@ void EmitX64::EmitGetExtendedRegister64(RegAlloc& reg_alloc, IR::Block&, IR::Ins
     ASSERT(Arm::IsDoubleExtReg(reg));
 
     Xbyak::Xmm result = reg_alloc.ScratchXmm();
-    code->movsd(result, MJitStateExtReg(reg));
+    AVX(code, movsd, result, MJitStateExtReg(reg));
     reg_alloc.DefineValue(inst, result);
 }
 
@@ -183,7 +185,7 @@ void EmitX64::EmitSetExtendedRegister32(RegAlloc& reg_alloc, IR::Block&, IR::Ins
     Arm::ExtReg reg = inst->GetArg(0).GetExtRegRef();
     ASSERT(Arm::IsSingleExtReg(reg));
     Xbyak::Xmm source = reg_alloc.UseXmm(args[1]);
-    code->movss(MJitStateExtReg(reg), source);
+    AVX(code, movss, MJitStateExtReg(reg), source);
 }
 
 void EmitX64::EmitSetExtendedRegister64(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
@@ -191,7 +193,7 @@ void EmitX64::EmitSetExtendedRegister64(RegAlloc& reg_alloc, IR::Block&, IR::Ins
     Arm::ExtReg reg = inst->GetArg(0).GetExtRegRef();
     ASSERT(Arm::IsDoubleExtReg(reg));
     Xbyak::Xmm source = reg_alloc.UseXmm(args[1]);
-    code->movsd(MJitStateExtReg(reg), source);
+    AVX(code, movsd, MJitStateExtReg(reg), source);
 }
 
 void EmitX64::EmitGetCpsr(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
@@ -1487,7 +1489,7 @@ void EmitX64::EmitPackedAddU8(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* i
     Xbyak::Xmm xmm_a = reg_alloc.UseScratchXmm(args[0]);
     Xbyak::Xmm xmm_b = reg_alloc.UseXmm(args[1]);
 
-    code->paddb(xmm_a, xmm_b);
+    AVX(code, paddb, xmm_a, xmm_b);
 
     if (ge_inst) {
         EraseInstruction(block, ge_inst);
@@ -1495,10 +1497,10 @@ void EmitX64::EmitPackedAddU8(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* i
         Xbyak::Reg32 reg_ge = reg_alloc.ScratchGpr().cvt32();
         Xbyak::Xmm tmp = reg_alloc.ScratchXmm();
 
-        code->movdqa(tmp, xmm_a);
-        code->pminub(tmp, xmm_b);
-        code->pcmpeqb(tmp, xmm_b);
-        code->movd(reg_ge, tmp);
+        AVX(code, movdqa, tmp, xmm_a);
+        AVX(code, pminub, tmp, xmm_b);
+        AVX(code, pcmpeqb, tmp, xmm_b);
+        AVX(code, movd, reg_ge, tmp);
         code->not_(reg_ge);
 
         ExtractMostSignificantBitFromPackedBytes(code, reg_alloc, reg_ge);
@@ -1523,12 +1525,12 @@ void EmitX64::EmitPackedAddS8(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* i
         Xbyak::Xmm saturated_sum = reg_alloc.ScratchXmm();
         reg_ge = reg_alloc.ScratchGpr().cvt32();
 
-        code->movdqa(saturated_sum, xmm_a);
-        code->paddsb(saturated_sum, xmm_b);
-        code->movd(reg_ge, saturated_sum);
+        AVX(code, movdqa, saturated_sum, xmm_a);
+        AVX(code, paddsb, saturated_sum, xmm_b);
+        AVX(code, movd, reg_ge, saturated_sum);
     }
 
-    code->paddb(xmm_a, xmm_b);
+    AVX(code, paddb, xmm_a, xmm_b);
 
     if (ge_inst) {
         code->not_(reg_ge);
@@ -1546,7 +1548,7 @@ void EmitX64::EmitPackedAddU16(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* 
     Xbyak::Xmm xmm_a = reg_alloc.UseScratchXmm(args[0]);
     Xbyak::Xmm xmm_b = reg_alloc.UseXmm(args[1]);
 
-    code->paddw(xmm_a, xmm_b);
+    AVX(code, paddw, xmm_a, xmm_b);
 
     if (ge_inst) {
         EraseInstruction(block, ge_inst);
@@ -1554,10 +1556,10 @@ void EmitX64::EmitPackedAddU16(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* 
         Xbyak::Reg32 reg_ge = reg_alloc.ScratchGpr().cvt32();
         Xbyak::Xmm tmp = reg_alloc.ScratchXmm();
 
-        code->movdqa(tmp, xmm_a);
-        code->pminuw(tmp, xmm_b);
-        code->pcmpeqw(tmp, xmm_b);
-        code->movd(reg_ge, tmp);
+        AVX(code, movdqa, tmp, xmm_a);
+        AVX(code, pminuw, tmp, xmm_b);
+        AVX(code, pcmpeqw, tmp, xmm_b);
+        AVX(code, movd, reg_ge, tmp);
         code->not_(reg_ge);
 
         ExtractMostSignificantBitFromPackedBytes(code, reg_alloc, reg_ge);
@@ -1581,12 +1583,12 @@ void EmitX64::EmitPackedAddS16(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* 
         reg_ge = reg_alloc.ScratchGpr().cvt32();
         Xbyak::Xmm saturated_sum = reg_alloc.ScratchXmm();
 
-        code->movdqa(saturated_sum, xmm_a);
-        code->paddsw(saturated_sum, xmm_b);
-        code->movd(reg_ge, saturated_sum);
+        AVX(code, movdqa, saturated_sum, xmm_a);
+        AVX(code, paddsw, saturated_sum, xmm_b);
+        AVX(code, movd, reg_ge, saturated_sum);
     }
 
-    code->paddw(xmm_a, xmm_b);
+    AVX(code, paddw, xmm_a, xmm_b);
 
     if (ge_inst) {
         code->not_(reg_ge);
@@ -1611,13 +1613,13 @@ void EmitX64::EmitPackedSubU8(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* i
         Xbyak::Xmm xmm_ge = reg_alloc.ScratchXmm();
         reg_ge = reg_alloc.ScratchGpr().cvt32();
 
-        code->movdqa(xmm_ge, xmm_a);
-        code->pmaxub(xmm_ge, xmm_b);
-        code->pcmpeqb(xmm_ge, xmm_a);
-        code->movd(reg_ge, xmm_ge);
+        AVX(code, movdqa, xmm_ge, xmm_a);
+        AVX(code, pmaxub, xmm_ge, xmm_b);
+        AVX(code, pcmpeqb, xmm_ge, xmm_a);
+        AVX(code, movd, reg_ge, xmm_ge);
     }
 
-    code->psubb(xmm_a, xmm_b);
+    AVX(code, psubb, xmm_a, xmm_b);
 
     if (ge_inst) {
         ExtractMostSignificantBitFromPackedBytes(code, reg_alloc, reg_ge);
@@ -1642,12 +1644,12 @@ void EmitX64::EmitPackedSubS8(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* i
         Xbyak::Xmm xmm_ge = reg_alloc.ScratchXmm();
         reg_ge = reg_alloc.ScratchGpr().cvt32();
 
-        code->movdqa(xmm_ge, xmm_a);
-        code->psubsb(xmm_ge, xmm_b);
-        code->movd(reg_ge, xmm_ge);
+        AVX(code, movdqa, xmm_ge, xmm_a);
+        AVX(code, psubsb, xmm_ge, xmm_b);
+        AVX(code, movd, reg_ge, xmm_ge);
     }
 
-    code->psubb(xmm_a, xmm_b);
+    AVX(code, psubb, xmm_a, xmm_b);
 
     if (ge_inst) {
         code->not_(reg_ge);
@@ -1672,13 +1674,13 @@ void EmitX64::EmitPackedSubU16(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* 
         reg_ge = reg_alloc.ScratchGpr().cvt32();
         Xbyak::Xmm xmm_ge = reg_alloc.ScratchXmm();
 
-        code->movdqa(xmm_ge, xmm_a);
-        code->pmaxuw(xmm_ge, xmm_b);
-        code->pcmpeqw(xmm_ge, xmm_a);
-        code->movd(reg_ge, xmm_ge);
+        AVX(code, movdqa, xmm_ge, xmm_a);
+        AVX(code, pmaxuw, xmm_ge, xmm_b);
+        AVX(code, pcmpeqw, xmm_ge, xmm_a);
+        AVX(code, movd, reg_ge, xmm_ge);
     }
 
-    code->psubw(xmm_a, xmm_b);
+    AVX(code, psubw, xmm_a, xmm_b);
 
     if (ge_inst) {
         ExtractAndDuplicateMostSignificantBitFromPackedWords(code, reg_ge);
@@ -1702,12 +1704,12 @@ void EmitX64::EmitPackedSubS16(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* 
         Xbyak::Xmm xmm_ge = reg_alloc.ScratchXmm();
         reg_ge = reg_alloc.ScratchGpr().cvt32();
 
-        code->movdqa(xmm_ge, xmm_a);
-        code->psubsw(xmm_ge, xmm_b);
-        code->movd(reg_ge, xmm_ge);
+        AVX(code, movdqa, xmm_ge, xmm_a);
+        AVX(code, psubsw, xmm_ge, xmm_b);
+        AVX(code, movd, reg_ge, xmm_ge);
     }
 
-    code->psubw(xmm_a, xmm_b);
+    AVX(code, psubw, xmm_a, xmm_b);
 
     if (ge_inst) {
         code->not_(reg_ge);
@@ -1721,56 +1723,21 @@ void EmitX64::EmitPackedSubS16(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* 
 void EmitX64::EmitPackedHalvingAddU8(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
     auto args = reg_alloc.GetArgumentInfo(inst);
 
-    // This code path requires SSSE3 because of the PSHUFB instruction.
-    // A fallback implementation is provided below.
-    if (code->DoesCpuSupport(Xbyak::util::Cpu::tSSSE3)) {
-        Xbyak::Xmm xmm_a = reg_alloc.UseScratchXmm(args[0]);
-        Xbyak::Xmm xmm_b = reg_alloc.UseScratchXmm(args[1]);
+    // Fallback implementation in case the CPU doesn't support SSSE3
+    Xbyak::Reg32 reg_a = reg_alloc.UseScratchGpr(args[0]).cvt32();
+    Xbyak::Reg32 reg_b = reg_alloc.UseGpr(args[1]).cvt32();
+    Xbyak::Reg32 xor_a_b = reg_alloc.ScratchGpr().cvt32();
+    Xbyak::Reg32 and_a_b = reg_a;
+    Xbyak::Reg32 result = reg_a;
 
-        Xbyak::Xmm xmm_mask = reg_alloc.ScratchXmm();
-        Xbyak::Reg64 mask = reg_alloc.ScratchGpr();
+    code->mov(xor_a_b, reg_a);
+    code->and_(and_a_b, reg_b);
+    code->xor_(xor_a_b, reg_b);
+    code->shr(xor_a_b, 1);
+    code->and_(xor_a_b, 0x7F7F7F7F);
+    code->add(result, xor_a_b);
 
-        // Set the mask to expand the values
-        // 0xAABBCCDD becomes 0x00AA00BB00CC00DD
-        code->mov(mask, 0x8003800280018000);
-        code->movq(xmm_mask, mask);
-
-        // Expand each 8-bit value to 16-bit
-        code->pshufb(xmm_a, xmm_mask);
-        code->pshufb(xmm_b, xmm_mask);
-
-        // Add the individual 16-bit values
-        code->paddw(xmm_a, xmm_b);
-
-        // Shift the 16-bit values to the right to halve them
-        code->psrlw(xmm_a, 1);
-
-        // Set the mask to pack the values again
-        // 0x00AA00BB00CC00DD becomes 0xAABBCCDD
-        code->mov(mask, 0x06040200);
-        code->movq(xmm_mask, mask);
-
-        // Shuffle them back to 8-bit values
-        code->pshufb(xmm_a, xmm_mask);
-
-        reg_alloc.DefineValue(inst, xmm_a);
-    } else {
-        // Fallback implementation in case the CPU doesn't support SSSE3
-        Xbyak::Reg32 reg_a = reg_alloc.UseScratchGpr(args[0]).cvt32();
-        Xbyak::Reg32 reg_b = reg_alloc.UseGpr(args[1]).cvt32();
-        Xbyak::Reg32 xor_a_b = reg_alloc.ScratchGpr().cvt32();
-        Xbyak::Reg32 and_a_b = reg_a;
-        Xbyak::Reg32 result = reg_a;
-
-        code->mov(xor_a_b, reg_a);
-        code->and_(and_a_b, reg_b);
-        code->xor_(xor_a_b, reg_b);
-        code->shr(xor_a_b, 1);
-        code->and_(xor_a_b, 0x7F7F7F7F);
-        code->add(result, xor_a_b);
-
-        reg_alloc.DefineValue(inst, result);
-    }
+    reg_alloc.DefineValue(inst, result);
 }
 
 void EmitX64::EmitPackedHalvingAddU16(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
@@ -2091,52 +2058,60 @@ void EmitX64::EmitPackedHalvingSubAddS16(RegAlloc& reg_alloc, IR::Block& block, 
     EmitPackedSubAdd(code, reg_alloc, block, inst, false, true, true);
 }
 
-static void EmitPackedOperation(BlockOfCode* code, RegAlloc& reg_alloc, IR::Inst* inst, void (Xbyak::CodeGenerator::*fn)(const Xbyak::Mmx& mmx, const Xbyak::Operand&)) {
+static void EmitPackedOperation(BlockOfCode* code, RegAlloc& reg_alloc, IR::Inst* inst, void (Xbyak::CodeGenerator::*sse_fn)(const Xbyak::Mmx&, const Xbyak::Operand&), void (Xbyak::CodeGenerator::*avx_fn)(const Xbyak::Xmm& mmx, const Xbyak::Operand&)) {
     auto args = reg_alloc.GetArgumentInfo(inst);
 
     Xbyak::Xmm xmm_a = reg_alloc.UseScratchXmm(args[0]);
     Xbyak::Xmm xmm_b = reg_alloc.UseXmm(args[1]);
 
-    (code->*fn)(xmm_a, xmm_b);
+    if (!code->ShouldEmitAvx()) {
+        (code->*sse_fn)(xmm_a, xmm_b);
+    } else {
+        (code->*avx_fn)(xmm_a, xmm_b);
+    }
 
     reg_alloc.DefineValue(inst, xmm_a);
 }
 
+#define PACKED_OP(NAME) EmitPackedOperation(code, reg_alloc, inst, &Xbyak::CodeGenerator::NAME, &Xbyak::CodeGenerator::v##NAME)
+
 void EmitX64::EmitPackedSaturatedAddU8(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
-    EmitPackedOperation(code, reg_alloc, inst, &Xbyak::CodeGenerator::paddusb);
+    PACKED_OP(paddusb);
 }
 
 void EmitX64::EmitPackedSaturatedAddS8(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
-    EmitPackedOperation(code, reg_alloc, inst, &Xbyak::CodeGenerator::paddsb);
+    PACKED_OP(paddsb);
 }
 
 void EmitX64::EmitPackedSaturatedSubU8(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
-    EmitPackedOperation(code, reg_alloc, inst, &Xbyak::CodeGenerator::psubusb);
+    PACKED_OP(psubusb);
 }
 
 void EmitX64::EmitPackedSaturatedSubS8(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
-    EmitPackedOperation(code, reg_alloc, inst, &Xbyak::CodeGenerator::psubsb);
+    PACKED_OP(psubsb);
 }
 
 void EmitX64::EmitPackedSaturatedAddU16(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
-    EmitPackedOperation(code, reg_alloc, inst, &Xbyak::CodeGenerator::paddusw);
+    PACKED_OP(paddusw);
 }
 
 void EmitX64::EmitPackedSaturatedAddS16(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
-    EmitPackedOperation(code, reg_alloc, inst, &Xbyak::CodeGenerator::paddsw);
+    PACKED_OP(paddsw);
 }
 
 void EmitX64::EmitPackedSaturatedSubU16(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
-    EmitPackedOperation(code, reg_alloc, inst, &Xbyak::CodeGenerator::psubusw);
+    PACKED_OP(psubusw);
 }
 
 void EmitX64::EmitPackedSaturatedSubS16(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
-    EmitPackedOperation(code, reg_alloc, inst, &Xbyak::CodeGenerator::psubsw);
+    PACKED_OP(psubsw);
 }
 
 void EmitX64::EmitPackedAbsDiffSumS8(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
-    EmitPackedOperation(code, reg_alloc, inst, &Xbyak::CodeGenerator::psadbw);
+    PACKED_OP(psadbw);
 }
+
+#undef PACKED_OP
 
 static void DenormalsAreZero32(BlockOfCode* code, Xbyak::Xmm xmm_value, Xbyak::Reg32 gpr_scratch) {
     using namespace Xbyak::util;
@@ -2145,12 +2120,12 @@ static void DenormalsAreZero32(BlockOfCode* code, Xbyak::Xmm xmm_value, Xbyak::R
     // We need to report back whether we've found a denormal on input.
     // SSE doesn't do this for us when SSE's DAZ is enabled.
 
-    code->movd(gpr_scratch, xmm_value);
+    AVX(code, movd, gpr_scratch, xmm_value);
     code->and_(gpr_scratch, u32(0x7FFFFFFF));
     code->sub(gpr_scratch, u32(1));
     code->cmp(gpr_scratch, u32(0x007FFFFE));
     code->ja(end);
-    code->pxor(xmm_value, xmm_value);
+    AVX(code, pxor, xmm_value, xmm_value);
     code->mov(dword[r15 + offsetof(JitState, FPSCR_IDC)], u32(1 << 7));
     code->L(end);
 }
@@ -2164,12 +2139,12 @@ static void DenormalsAreZero64(BlockOfCode* code, Xbyak::Xmm xmm_value, Xbyak::R
     auto penult_denormal = code->MConst(f64_penultimate_positive_denormal);
     penult_denormal.setBit(64);
 
-    code->movq(gpr_scratch, xmm_value);
+    AVX(code, movq, gpr_scratch, xmm_value);
     code->and_(gpr_scratch, mask);
     code->sub(gpr_scratch, u32(1));
     code->cmp(gpr_scratch, penult_denormal);
     code->ja(end);
-    code->pxor(xmm_value, xmm_value);
+    AVX(code, pxor, xmm_value, xmm_value);
     code->mov(dword[r15 + offsetof(JitState, FPSCR_IDC)], u32(1 << 7));
     code->L(end);
 }
@@ -2178,12 +2153,12 @@ static void FlushToZero32(BlockOfCode* code, Xbyak::Xmm xmm_value, Xbyak::Reg32 
     using namespace Xbyak::util;
     Xbyak::Label end;
 
-    code->movd(gpr_scratch, xmm_value);
+    AVX(code, movd, gpr_scratch, xmm_value);
     code->and_(gpr_scratch, u32(0x7FFFFFFF));
     code->sub(gpr_scratch, u32(1));
     code->cmp(gpr_scratch, u32(0x007FFFFE));
     code->ja(end);
-    code->pxor(xmm_value, xmm_value);
+    AVX(code, pxor, xmm_value, xmm_value);
     code->mov(dword[r15 + offsetof(JitState, FPSCR_UFC)], u32(1 << 3));
     code->L(end);
 }
@@ -2197,12 +2172,12 @@ static void FlushToZero64(BlockOfCode* code, Xbyak::Xmm xmm_value, Xbyak::Reg64 
     auto penult_denormal = code->MConst(f64_penultimate_positive_denormal);
     penult_denormal.setBit(64);
 
-    code->movq(gpr_scratch, xmm_value);
+    AVX(code, movq, gpr_scratch, xmm_value);
     code->and_(gpr_scratch, mask);
     code->sub(gpr_scratch, u32(1));
     code->cmp(gpr_scratch, penult_denormal);
     code->ja(end);
-    code->pxor(xmm_value, xmm_value);
+    AVX(code, pxor, xmm_value, xmm_value);
     code->mov(dword[r15 + offsetof(JitState, FPSCR_UFC)], u32(1 << 3));
     code->L(end);
 }
@@ -2210,28 +2185,28 @@ static void FlushToZero64(BlockOfCode* code, Xbyak::Xmm xmm_value, Xbyak::Reg64 
 static void DefaultNaN32(BlockOfCode* code, Xbyak::Xmm xmm_value) {
     Xbyak::Label end;
 
-    code->ucomiss(xmm_value, xmm_value);
+    AVX(code, ucomiss, xmm_value, xmm_value);
     code->jnp(end);
-    code->movaps(xmm_value, code->MConst(f32_nan));
+    AVX(code, movaps, xmm_value, code->MConst(f32_nan));
     code->L(end);
 }
 
 static void DefaultNaN64(BlockOfCode* code, Xbyak::Xmm xmm_value) {
     Xbyak::Label end;
 
-    code->ucomisd(xmm_value, xmm_value);
+    AVX(code, ucomisd, xmm_value, xmm_value);
     code->jnp(end);
-    code->movaps(xmm_value, code->MConst(f64_nan));
+    AVX(code, movaps, xmm_value, code->MConst(f64_nan));
     code->L(end);
 }
 
 static void ZeroIfNaN64(BlockOfCode* code, Xbyak::Xmm xmm_value, Xbyak::Xmm xmm_scratch) {
-    code->pxor(xmm_scratch, xmm_scratch);
-    code->cmpordsd(xmm_scratch, xmm_value); // true mask when ordered (i.e.: when not an NaN)
-    code->pand(xmm_value, xmm_scratch);
+    AVX(code, pxor, xmm_scratch, xmm_scratch);
+    AVX(code, cmpordsd, xmm_scratch, xmm_value); // true mask when ordered (i.e.: when not an NaN)
+    AVX(code, pand, xmm_value, xmm_scratch);
 }
 
-static void FPThreeOp32(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst, void (Xbyak::CodeGenerator::*fn)(const Xbyak::Xmm&, const Xbyak::Operand&)) {
+static void FPThreeOp32(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst, void (Xbyak::CodeGenerator::*sse_fn)(const Xbyak::Xmm&, const Xbyak::Operand&), void (Xbyak::CodeGenerator::*avx_fn)(const Xbyak::Xmm&, const Xbyak::Operand&, const Xbyak::Operand&)) {
     auto args = reg_alloc.GetArgumentInfo(inst);
 
     Xbyak::Xmm result = reg_alloc.UseScratchXmm(args[0]);
@@ -2242,7 +2217,11 @@ static void FPThreeOp32(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block
         DenormalsAreZero32(code, result, gpr_scratch);
         DenormalsAreZero32(code, operand, gpr_scratch);
     }
-    (code->*fn)(result, operand);
+    if (!code->ShouldEmitAvx()) {
+        (code->*sse_fn)(result, operand);
+    } else {
+        (code->*avx_fn)(result, result, operand);
+    }
     if (block.Location().FPSCR().FTZ()) {
         FlushToZero32(code, result, gpr_scratch);
     }
@@ -2253,7 +2232,7 @@ static void FPThreeOp32(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block
     reg_alloc.DefineValue(inst, result);
 }
 
-static void FPThreeOp64(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst, void (Xbyak::CodeGenerator::*fn)(const Xbyak::Xmm&, const Xbyak::Operand&)) {
+static void FPThreeOp64(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst, void (Xbyak::CodeGenerator::*sse_fn)(const Xbyak::Xmm&, const Xbyak::Operand&), void (Xbyak::CodeGenerator::*avx_fn)(const Xbyak::Xmm&, const Xbyak::Operand&, const Xbyak::Operand&)) {
     auto args = reg_alloc.GetArgumentInfo(inst);
 
     Xbyak::Xmm result = reg_alloc.UseScratchXmm(args[0]);
@@ -2264,7 +2243,11 @@ static void FPThreeOp64(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block
         DenormalsAreZero64(code, result, gpr_scratch);
         DenormalsAreZero64(code, operand, gpr_scratch);
     }
-    (code->*fn)(result, operand);
+    if (!code->ShouldEmitAvx()) {
+        (code->*sse_fn)(result, operand);
+    } else {
+        (code->*avx_fn)(result, result, operand);
+    }
     if (block.Location().FPSCR().FTZ()) {
         FlushToZero64(code, result, gpr_scratch);
     }
@@ -2275,7 +2258,7 @@ static void FPThreeOp64(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block
     reg_alloc.DefineValue(inst, result);
 }
 
-static void FPTwoOp32(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst, void (Xbyak::CodeGenerator::*fn)(const Xbyak::Xmm&, const Xbyak::Operand&)) {
+static void FPTwoOp32(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst, void (Xbyak::CodeGenerator::*sse_fn)(const Xbyak::Xmm&, const Xbyak::Operand&), void (Xbyak::CodeGenerator::*avx_fn)(const Xbyak::Xmm&, const Xbyak::Operand&)) {
     auto args = reg_alloc.GetArgumentInfo(inst);
 
     Xbyak::Xmm result = reg_alloc.UseScratchXmm(args[0]);
@@ -2285,7 +2268,11 @@ static void FPTwoOp32(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block, 
         DenormalsAreZero32(code, result, gpr_scratch);
     }
 
-    (code->*fn)(result, result);
+    if (!code->ShouldEmitAvx()) {
+        (code->*sse_fn)(result, result);
+    } else {
+        (code->*avx_fn)(result, result);
+    }
     if (block.Location().FPSCR().FTZ()) {
         FlushToZero32(code, result, gpr_scratch);
     }
@@ -2296,7 +2283,7 @@ static void FPTwoOp32(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block, 
     reg_alloc.DefineValue(inst, result);
 }
 
-static void FPTwoOp64(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst, void (Xbyak::CodeGenerator::*fn)(const Xbyak::Xmm&, const Xbyak::Operand&)) {
+static void FPTwoOp64(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst, void (Xbyak::CodeGenerator::*sse_fn)(const Xbyak::Xmm&, const Xbyak::Operand&), void (Xbyak::CodeGenerator::*avx_fn)(const Xbyak::Xmm&, const Xbyak::Operand&)) {
     auto args = reg_alloc.GetArgumentInfo(inst);
 
     Xbyak::Xmm result = reg_alloc.UseScratchXmm(args[0]);
@@ -2306,7 +2293,11 @@ static void FPTwoOp64(BlockOfCode* code, RegAlloc& reg_alloc, IR::Block& block, 
         DenormalsAreZero64(code, result, gpr_scratch);
     }
 
-    (code->*fn)(result, result);
+    if (!code->ShouldEmitAvx()) {
+        (code->*sse_fn)(result, result);
+    } else {
+        (code->*avx_fn)(result, result);
+    }
     if (block.Location().FPSCR().FTZ()) {
         FlushToZero64(code, result, gpr_scratch);
     }
@@ -2331,7 +2322,7 @@ void EmitX64::EmitTransferToFP32(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst
     auto args = reg_alloc.GetArgumentInfo(inst);
     if (args[0].IsImmediate() && args[0].GetImmediateU32() == 0) {
         Xbyak::Xmm result = reg_alloc.ScratchXmm();
-        code->xorps(result, result);
+        AVX(code, xorps, result, result);
         reg_alloc.DefineValue(inst, result);
     } else {
         reg_alloc.DefineValue(inst, args[0]);
@@ -2342,7 +2333,7 @@ void EmitX64::EmitTransferToFP64(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst
     auto args = reg_alloc.GetArgumentInfo(inst);
     if (args[0].IsImmediate() && args[0].GetImmediateU64() == 0) {
         Xbyak::Xmm result = reg_alloc.ScratchXmm();
-        code->xorps(result, result);
+        AVX(code, xorps, result, result);
         reg_alloc.DefineValue(inst, result);
     } else {
         reg_alloc.DefineValue(inst, args[0]);
@@ -2353,7 +2344,7 @@ void EmitX64::EmitFPAbs32(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
     auto args = reg_alloc.GetArgumentInfo(inst);
     Xbyak::Xmm result = reg_alloc.UseScratchXmm(args[0]);
 
-    code->pand(result, code->MConst(f32_non_sign_mask));
+    AVX(code, pand, result, code->MConst(f32_non_sign_mask));
 
     reg_alloc.DefineValue(inst, result);
 }
@@ -2362,7 +2353,7 @@ void EmitX64::EmitFPAbs64(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
     auto args = reg_alloc.GetArgumentInfo(inst);
     Xbyak::Xmm result = reg_alloc.UseScratchXmm(args[0]);
 
-    code->pand(result, code->MConst(f64_non_sign_mask));
+    AVX(code, pand, result, code->MConst(f64_non_sign_mask));
 
     reg_alloc.DefineValue(inst, result);
 }
@@ -2371,7 +2362,7 @@ void EmitX64::EmitFPNeg32(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
     auto args = reg_alloc.GetArgumentInfo(inst);
     Xbyak::Xmm result = reg_alloc.UseScratchXmm(args[0]);
 
-    code->pxor(result, code->MConst(f32_negative_zero));
+    AVX(code, pxor, result, code->MConst(f32_negative_zero));
 
     reg_alloc.DefineValue(inst, result);
 }
@@ -2380,49 +2371,54 @@ void EmitX64::EmitFPNeg64(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
     auto args = reg_alloc.GetArgumentInfo(inst);
     Xbyak::Xmm result = reg_alloc.UseScratchXmm(args[0]);
 
-    code->pxor(result, code->MConst(f64_negative_zero));
+    AVX(code, pxor, result, code->MConst(f64_negative_zero));
 
     reg_alloc.DefineValue(inst, result);
 }
 
+#define THREEOP32(NAME) FPThreeOp32(code, reg_alloc, block, inst, &Xbyak::CodeGenerator::NAME, &Xbyak::CodeGenerator::v##NAME)
+#define THREEOP64(NAME) FPThreeOp64(code, reg_alloc, block, inst, &Xbyak::CodeGenerator::NAME, &Xbyak::CodeGenerator::v##NAME)
+#define TWOOP32(NAME) FPTwoOp32(code, reg_alloc, block, inst, &Xbyak::CodeGenerator::NAME, &Xbyak::CodeGenerator::v##NAME)
+#define TWOOP64(NAME) FPTwoOp64(code, reg_alloc, block, inst, &Xbyak::CodeGenerator::NAME, &Xbyak::CodeGenerator::v##NAME)
+
 void EmitX64::EmitFPAdd32(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst) {
-    FPThreeOp32(code, reg_alloc, block, inst, &Xbyak::CodeGenerator::addss);
+    THREEOP32(addss);
 }
 
 void EmitX64::EmitFPAdd64(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst) {
-    FPThreeOp64(code, reg_alloc, block, inst, &Xbyak::CodeGenerator::addsd);
+    THREEOP64(addsd);
 }
 
 void EmitX64::EmitFPDiv32(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst) {
-    FPThreeOp32(code, reg_alloc, block, inst, &Xbyak::CodeGenerator::divss);
+    THREEOP32(divss);
 }
 
 void EmitX64::EmitFPDiv64(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst) {
-    FPThreeOp64(code, reg_alloc, block, inst, &Xbyak::CodeGenerator::divsd);
+    THREEOP64(divsd);
 }
 
 void EmitX64::EmitFPMul32(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst) {
-    FPThreeOp32(code, reg_alloc, block, inst, &Xbyak::CodeGenerator::mulss);
+    THREEOP32(mulss);
 }
 
 void EmitX64::EmitFPMul64(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst) {
-    FPThreeOp64(code, reg_alloc, block, inst, &Xbyak::CodeGenerator::mulsd);
+    THREEOP64(mulsd);
 }
 
 void EmitX64::EmitFPSqrt32(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst) {
-    FPTwoOp32(code, reg_alloc, block, inst, &Xbyak::CodeGenerator::sqrtss);
+    TWOOP32(sqrtss);
 }
 
 void EmitX64::EmitFPSqrt64(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst) {
-    FPTwoOp64(code, reg_alloc, block, inst, &Xbyak::CodeGenerator::sqrtsd);
+    TWOOP64(sqrtsd);
 }
 
 void EmitX64::EmitFPSub32(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst) {
-    FPThreeOp32(code, reg_alloc, block, inst, &Xbyak::CodeGenerator::subss);
+    THREEOP32(subss);
 }
 
 void EmitX64::EmitFPSub64(RegAlloc& reg_alloc, IR::Block& block, IR::Inst* inst) {
-    FPThreeOp64(code, reg_alloc, block, inst, &Xbyak::CodeGenerator::subsd);
+    THREEOP64(subsd);
 }
 
 static void SetFpscrNzcvFromFlags(BlockOfCode* code, RegAlloc& reg_alloc) {
@@ -2455,9 +2451,9 @@ void EmitX64::EmitFPCompare32(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
     bool quiet = args[2].GetImmediateU1();
 
     if (quiet) {
-        code->ucomiss(reg_a, reg_b);
+        AVX(code, ucomiss, reg_a, reg_b);
     } else {
-        code->comiss(reg_a, reg_b);
+        AVX(code, comiss, reg_a, reg_b);
     }
 
     SetFpscrNzcvFromFlags(code, reg_alloc);
@@ -2470,9 +2466,9 @@ void EmitX64::EmitFPCompare64(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst) {
     bool quiet = args[2].GetImmediateU1();
 
     if (quiet) {
-        code->ucomisd(reg_a, reg_b);
+        AVX(code, ucomisd, reg_a, reg_b);
     } else {
-        code->comisd(reg_a, reg_b);
+        AVX(code, comisd, reg_a, reg_b);
     }
 
     SetFpscrNzcvFromFlags(code, reg_alloc);
@@ -2486,7 +2482,7 @@ void EmitX64::EmitFPSingleToDouble(RegAlloc& reg_alloc, IR::Block& block, IR::In
     if (block.Location().FPSCR().FTZ()) {
         DenormalsAreZero32(code, result, gpr_scratch.cvt32());
     }
-    code->cvtss2sd(result, result);
+    AVX(code, cvtss2sd, result, result);
     if (block.Location().FPSCR().FTZ()) {
         FlushToZero64(code, result, gpr_scratch);
     }
@@ -2505,7 +2501,7 @@ void EmitX64::EmitFPDoubleToSingle(RegAlloc& reg_alloc, IR::Block& block, IR::In
     if (block.Location().FPSCR().FTZ()) {
         DenormalsAreZero64(code, result, gpr_scratch);
     }
-    code->cvtsd2ss(result, result);
+    AVX(code, cvtsd2ss, result, result);
     if (block.Location().FPSCR().FTZ()) {
         FlushToZero32(code, result, gpr_scratch.cvt32());
     }
@@ -2529,22 +2525,22 @@ void EmitX64::EmitFPSingleToS32(RegAlloc& reg_alloc, IR::Block& block, IR::Inst*
     if (block.Location().FPSCR().FTZ()) {
         DenormalsAreZero32(code, from, to);
     }
-    code->cvtss2sd(from, from);
+    AVX(code, cvtss2sd, from, from);
     // First time is to set flags
     if (round_towards_zero) {
-        code->cvttsd2si(to, from); // 32 bit gpr
+        AVX(code, cvttsd2si, to, from); // 32 bit gpr
     } else {
-        code->cvtsd2si(to, from); // 32 bit gpr
+        AVX(code, cvtsd2si, to, from); // 32 bit gpr
     }
     // Clamp to output range
     ZeroIfNaN64(code, from, xmm_scratch);
-    code->minsd(from, code->MConst(f64_max_s32));
-    code->maxsd(from, code->MConst(f64_min_s32));
+    AVX(code, minsd, from, code->MConst(f64_max_s32));
+    AVX(code, maxsd, from, code->MConst(f64_min_s32));
     // Second time is for real
     if (round_towards_zero) {
-        code->cvttsd2si(to, from); // 32 bit gpr
+        AVX(code, cvttsd2si, to, from); // 32 bit gpr
     } else {
-        code->cvtsd2si(to, from); // 32 bit gpr
+        AVX(code, cvtsd2si, to, from); // 32 bit gpr
     }
 
     reg_alloc.DefineValue(inst, to);
@@ -2568,17 +2564,17 @@ void EmitX64::EmitFPSingleToU32(RegAlloc& reg_alloc, IR::Block& block, IR::Inst*
         if (block.Location().FPSCR().FTZ()) {
             DenormalsAreZero32(code, from, to);
         }
-        code->cvtss2sd(from, from);
+        AVX(code, cvtss2sd, from, from);
         ZeroIfNaN64(code, from, xmm_scratch);
         // Bring into SSE range
-        code->addsd(from, code->MConst(f64_min_s32));
+        AVX(code, addsd, from, code->MConst(f64_min_s32));
         // First time is to set flags
-        code->cvtsd2si(to, from); // 32 bit gpr
+        AVX(code, cvtsd2si, to, from); // 32 bit gpr
         // Clamp to output range
-        code->minsd(from, code->MConst(f64_max_s32));
-        code->maxsd(from, code->MConst(f64_min_s32));
+        AVX(code, minsd, from, code->MConst(f64_max_s32));
+        AVX(code, maxsd, from, code->MConst(f64_min_s32));
         // Actually convert
-        code->cvtsd2si(to, from); // 32 bit gpr
+        AVX(code, cvtsd2si, to, from); // 32 bit gpr
         // Bring back into original range
         code->add(to, u32(2147483648u));
     } else {
@@ -2588,23 +2584,23 @@ void EmitX64::EmitFPSingleToU32(RegAlloc& reg_alloc, IR::Block& block, IR::Inst*
         if (block.Location().FPSCR().FTZ()) {
             DenormalsAreZero32(code, from, to);
         }
-        code->cvtss2sd(from, from);
+        AVX(code, cvtss2sd, from, from);
         ZeroIfNaN64(code, from, xmm_scratch);
         // Generate masks if out-of-signed-range
-        code->movaps(xmm_mask, code->MConst(f64_max_s32));
-        code->cmpltsd(xmm_mask, from);
-        code->movd(gpr_mask, xmm_mask);
-        code->pand(xmm_mask, code->MConst(f64_min_s32));
+        AVX(code, movaps, xmm_mask, code->MConst(f64_max_s32));
+        AVX(code, cmpltsd, xmm_mask, from);
+        AVX(code, movd, gpr_mask, xmm_mask);
+        AVX(code, pand, xmm_mask, code->MConst(f64_min_s32));
         code->and_(gpr_mask, u32(2147483648u));
         // Bring into range if necessary
-        code->addsd(from, xmm_mask);
+        AVX(code, addsd, from, xmm_mask);
         // First time is to set flags
-        code->cvttsd2si(to, from); // 32 bit gpr
+        AVX(code, cvttsd2si, to, from); // 32 bit gpr
         // Clamp to output range
-        code->minsd(from, code->MConst(f64_max_s32));
-        code->maxsd(from, code->MConst(f64_min_u32));
+        AVX(code, minsd, from, code->MConst(f64_max_s32));
+        AVX(code, maxsd, from, code->MConst(f64_min_u32));
         // Actually convert
-        code->cvttsd2si(to, from); // 32 bit gpr
+        AVX(code, cvttsd2si, to, from); // 32 bit gpr
         // Bring back into original range if necessary
         code->add(to, gpr_mask);
     }
@@ -2627,19 +2623,19 @@ void EmitX64::EmitFPDoubleToS32(RegAlloc& reg_alloc, IR::Block& block, IR::Inst*
     }
     // First time is to set flags
     if (round_towards_zero) {
-        code->cvttsd2si(gpr_scratch, from); // 32 bit gpr
+        AVX(code, cvttsd2si, gpr_scratch, from); // 32 bit gpr
     } else {
-        code->cvtsd2si(gpr_scratch, from); // 32 bit gpr
+        AVX(code, cvtsd2si, gpr_scratch, from); // 32 bit gpr
     }
     // Clamp to output range
     ZeroIfNaN64(code, from, xmm_scratch);
-    code->minsd(from, code->MConst(f64_max_s32));
-    code->maxsd(from, code->MConst(f64_min_s32));
+    AVX(code, minsd, from, code->MConst(f64_max_s32));
+    AVX(code, maxsd, from, code->MConst(f64_min_s32));
     // Second time is for real
     if (round_towards_zero) {
-        code->cvttsd2si(to, from); // 32 bit gpr
+        AVX(code, cvttsd2si, to, from); // 32 bit gpr
     } else {
-        code->cvtsd2si(to, from); // 32 bit gpr
+        AVX(code, cvtsd2si, to, from); // 32 bit gpr
     }
 
     reg_alloc.DefineValue(inst, to);
@@ -2663,14 +2659,14 @@ void EmitX64::EmitFPDoubleToU32(RegAlloc& reg_alloc, IR::Block& block, IR::Inst*
         }
         ZeroIfNaN64(code, from, xmm_scratch);
         // Bring into SSE range
-        code->addsd(from, code->MConst(f64_min_s32));
+        AVX(code, addsd, from, code->MConst(f64_min_s32));
         // First time is to set flags
-        code->cvtsd2si(gpr_scratch, from); // 32 bit gpr
+        AVX(code, cvtsd2si, gpr_scratch, from); // 32 bit gpr
         // Clamp to output range
-        code->minsd(from, code->MConst(f64_max_s32));
-        code->maxsd(from, code->MConst(f64_min_s32));
+        AVX(code, minsd, from, code->MConst(f64_max_s32));
+        AVX(code, maxsd, from, code->MConst(f64_min_s32));
         // Actually convert
-        code->cvtsd2si(to, from); // 32 bit gpr
+        AVX(code, cvtsd2si, to, from); // 32 bit gpr
         // Bring back into original range
         code->add(to, u32(2147483648u));
     } else {
@@ -2682,20 +2678,20 @@ void EmitX64::EmitFPDoubleToU32(RegAlloc& reg_alloc, IR::Block& block, IR::Inst*
         }
         ZeroIfNaN64(code, from, xmm_scratch);
         // Generate masks if out-of-signed-range
-        code->movaps(xmm_mask, code->MConst(f64_max_s32));
-        code->cmpltsd(xmm_mask, from);
-        code->movd(gpr_mask, xmm_mask);
-        code->pand(xmm_mask, code->MConst(f64_min_s32));
+        AVX(code, movaps, xmm_mask, code->MConst(f64_max_s32));
+        AVX(code, cmpltsd, xmm_mask, from);
+        AVX(code, movd, gpr_mask, xmm_mask);
+        AVX(code, pand, xmm_mask, code->MConst(f64_min_s32));
         code->and_(gpr_mask, u32(2147483648u));
         // Bring into range if necessary
-        code->addsd(from, xmm_mask);
+        AVX(code, addsd, from, xmm_mask);
         // First time is to set flags
-        code->cvttsd2si(gpr_scratch, from); // 32 bit gpr
+        AVX(code, cvttsd2si, gpr_scratch, from); // 32 bit gpr
         // Clamp to output range
-        code->minsd(from, code->MConst(f64_max_s32));
-        code->maxsd(from, code->MConst(f64_min_u32));
+        AVX(code, minsd, from, code->MConst(f64_max_s32));
+        AVX(code, maxsd, from, code->MConst(f64_min_u32));
         // Actually convert
-        code->cvttsd2si(to, from); // 32 bit gpr
+        AVX(code, cvttsd2si, to, from); // 32 bit gpr
         // Bring back into original range if necessary
         code->add(to, gpr_mask);
     }
@@ -2710,7 +2706,7 @@ void EmitX64::EmitFPS32ToSingle(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst)
     bool round_to_nearest = args[1].GetImmediateU1();
     ASSERT_MSG(!round_to_nearest, "round_to_nearest unimplemented");
 
-    code->cvtsi2ss(to, from);
+    AVX(code, cvtsi2ss, to, from);
 
     reg_alloc.DefineValue(inst, to);
 }
@@ -2724,7 +2720,7 @@ void EmitX64::EmitFPU32ToSingle(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst)
 
     // We are using a 64-bit GPR register to ensure we don't end up treating the input as signed
     code->mov(from.cvt32(), from.cvt32()); // TODO: Verify if this is necessary
-    code->cvtsi2ss(to, from);
+    AVX(code, cvtsi2ss, to, from);
 
     reg_alloc.DefineValue(inst, to);
 }
@@ -2736,7 +2732,7 @@ void EmitX64::EmitFPS32ToDouble(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst)
     bool round_to_nearest = args[1].GetImmediateU1();
     ASSERT_MSG(!round_to_nearest, "round_to_nearest unimplemented");
 
-    code->cvtsi2sd(to, from);
+    AVX(code, cvtsi2sd, to, from);
 
     reg_alloc.DefineValue(inst, to);
 }
@@ -2750,7 +2746,7 @@ void EmitX64::EmitFPU32ToDouble(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst)
 
     // We are using a 64-bit GPR register to ensure we don't end up treating the input as signed
     code->mov(from.cvt32(), from.cvt32()); // TODO: Verify if this is necessary
-    code->cvtsi2sd(to, from);
+    AVX(code, cvtsi2sd, to, from);
 
     reg_alloc.DefineValue(inst, to);
 }
@@ -2819,7 +2815,7 @@ static void ReadMemory(BlockOfCode* code, RegAlloc& reg_alloc, IR::Inst* inst, U
     }
     code->jmp(end);
     code->L(abort);
-    code->call(code->GetMemoryReadCallback(bit_size));
+    code->CallFunction(code->GetMemoryReadCallback(bit_size));
     code->L(end);
 }
 
@@ -2869,7 +2865,7 @@ static void WriteMemory(BlockOfCode* code, RegAlloc& reg_alloc, IR::Inst* inst, 
     }
     code->jmp(end);
     code->L(abort);
-    code->call(code->GetMemoryWriteCallback(bit_size));
+    code->CallFunction(code->GetMemoryWriteCallback(bit_size));
     code->L(end);
 }
 

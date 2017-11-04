@@ -22,6 +22,8 @@ namespace BackendX64 {
 
 using LookupBlockCallback = CodePtr(*)(void*);
 
+#define AVX(CODE, NAME, ...) (!CODE->ShouldEmitAvx() ? CODE->NAME(__VA_ARGS__) : CODE->v##NAME(__VA_ARGS__))
+
 class BlockOfCode final : public Xbyak::CodeGenerator {
 public:
     BlockOfCode(UserCallbacks cb, LookupBlockCallback lookup_block, void* lookup_block_arg);
@@ -39,21 +41,21 @@ public:
     void SwitchMxcsrOnEntry();
     /// Code emitter: Makes saved host MXCSR the current MXCSR
     void SwitchMxcsrOnExit();
+    /// Code emitter: Emits VZEROUPPER if necessary
+    void MaybeAvxToSseTransition();
 
     /// Code emitter: Calls the function
     template <typename FunctionPointer>
     void CallFunction(FunctionPointer fn) {
-        static_assert(std::is_pointer<FunctionPointer>() && std::is_function<std::remove_pointer_t<FunctionPointer>>(),
-                      "Supplied type must be a pointer to a function");
+        static_assert((std::is_pointer<FunctionPointer>() && std::is_function<std::remove_pointer_t<FunctionPointer>>())
+                        || std::is_same<FunctionPointer, const void*>::value,
+                      "Supplied type must be a pointer to a function or const void");
 
         const u64 address  = reinterpret_cast<u64>(fn);
         const u64 distance = address - (getCurr<u64>() + 5);
 
         // As we do not know if user-code is AVX or SSE, an AVX-SSE transition may occur.
-        // We avoid the transition penalty by calling vzeroupper.
-        if (DoesCpuSupport(Xbyak::util::Cpu::tAVX)) {
-            vzeroupper();
-        }
+        MaybeAvxToSseTransition();
 
         if (distance >= 0x0000000080000000ULL && distance < 0xFFFFFFFF80000000ULL) {
             // Far call
@@ -126,6 +128,7 @@ public:
     static const Xbyak::Reg64 ABI_PARAM4;
 
     bool DoesCpuSupport(Xbyak::util::Cpu::Type type) const;
+    bool ShouldEmitAvx() const;
 
 private:
     UserCallbacks cb;

@@ -86,12 +86,6 @@ void BlockOfCode::GenRunCode() {
     align();
     run_code = getCurr<RunCodeFuncType>();
 
-    // As we currently do not emit AVX instructions, AVX-SSE transition may occur.
-    // We avoid the transition penalty by calling vzeroupper.
-    if (DoesCpuSupport(Xbyak::util::Cpu::tAVX)) {
-        vzeroupper();
-    }
-
     // This serves two purposes:
     // 1. It saves all the registers we as a callee need to save.
     // 2. It aligns the stack so that the code the JIT emits can assume
@@ -119,6 +113,10 @@ void BlockOfCode::GenRunCode() {
         }
 
         ABI_PopCalleeSaveRegistersAndAdjustStack(this);
+
+        // As we do not know if user-code is AVX or SSE, an AVX-SSE transition may occur.
+        MaybeAvxToSseTransition();
+
         ret();
     };
 
@@ -198,13 +196,43 @@ void BlockOfCode::GenMemoryAccessors() {
 }
 
 void BlockOfCode::SwitchMxcsrOnEntry() {
-    stmxcsr(dword[r15 + offsetof(JitState, save_host_MXCSR)]);
-    ldmxcsr(dword[r15 + offsetof(JitState, guest_MXCSR)]);
+    AVX(this, stmxcsr, dword[r15 + offsetof(JitState, save_host_MXCSR)]);
+    AVX(this, ldmxcsr, dword[r15 + offsetof(JitState, guest_MXCSR)]);
 }
 
 void BlockOfCode::SwitchMxcsrOnExit() {
-    stmxcsr(dword[r15 + offsetof(JitState, guest_MXCSR)]);
-    ldmxcsr(dword[r15 + offsetof(JitState, save_host_MXCSR)]);
+    AVX(this, stmxcsr, dword[r15 + offsetof(JitState, guest_MXCSR)]);
+    AVX(this, ldmxcsr, dword[r15 + offsetof(JitState, save_host_MXCSR)]);
+}
+
+void BlockOfCode::MaybeAvxToSseTransition() {
+    // There are two kinds of transition penalties.
+    // The first is when transitioning from AVX to legacy SSE code.
+    // The second is when transitioning from legacy SSE to AXV code.
+    // The second penalty only occurs if the first had occured previously.
+    //
+    // This occurs because the YMM registers can be in three states:
+    // A. Upper 128-bits are known to be zero.
+    // B. Full 256-bits are used. ("Dirty upper" state.)
+    // C. Upper 128-bits are saved, lower 128-bits currently used. ("Preserved upper".)
+    //
+    // AVX instructions require the CPU to be in state B.
+    // SSE instructions require the CPU to be in state A or C.
+    // Transitions between A and B are cheap (and are done with vzeroupper/vzeroall).
+    // Transitions to and from C are expensive.
+    //
+    // Depending on microarchitecture this may be tracked at register granularity.
+    //
+    // Sandy Bridge to Broadwell: One-time penalty of about 70 cycles.
+    // Skylake: State C doesn't exist as SSE instructions can execute in state B,
+    //          but doing so has an ongoing penalty.
+    // Knights Landing: Intel recommends not emitting vzeroupper on this microarch.
+    //
+    // AMD up to Ryzen: No known penalty for mixing AVX and non-AVX instructions.
+
+    if (DoesCpuSupport(Xbyak::util::Cpu::tAVX)) {
+        vzeroupper();
+    }
 }
 
 Xbyak::Address BlockOfCode::MConst(u64 constant) {
@@ -252,6 +280,10 @@ void BlockOfCode::EnsurePatchLocationSize(CodePtr begin, size_t size) {
 
 bool BlockOfCode::DoesCpuSupport(Xbyak::util::Cpu::Type type) const {
     return cpu_info.has(type);
+}
+
+bool BlockOfCode::ShouldEmitAvx() const {
+    return DoesCpuSupport(Xbyak::util::Cpu::tAVX);
 }
 
 } // namespace BackendX64
