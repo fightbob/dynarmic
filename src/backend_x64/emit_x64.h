@@ -17,6 +17,7 @@
 
 #include "backend_x64/reg_alloc.h"
 #include "common/address_range.h"
+#include "common/hash_util.h"
 #include "dynarmic/callbacks.h"
 #include "frontend/ir/location_descriptor.h"
 #include "frontend/ir/terminal.h"
@@ -100,10 +101,10 @@ private:
     // State
     BlockOfCode* code;
     UserCallbacks cb;
-    boost::icl::interval_map<u32, std::set<IR::LocationDescriptor>> block_ranges;
     Jit* jit_interface;
-    std::unordered_map<u64, BlockDescriptor> block_descriptors;
-    std::unordered_map<u64, PatchInformation> patch_information;
+    std::unordered_map<u64, BlockDescriptor, Common::U64Mixer> block_descriptors;
+    std::unordered_map<u64, PatchInformation, Common::U64Mixer> patch_information;
+    boost::icl::interval_map<u32, std::set<IR::LocationDescriptor>> block_ranges;
 };
 
 } // namespace BackendX64

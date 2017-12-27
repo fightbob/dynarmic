@@ -18,5 +18,11 @@ inline u64 u64_mixer(u64 a) {
     return a;
 }
 
+struct U64Mixer {
+    size_t operator()(u64 x) const {
+        return static_cast<size_t>(u64_mixer(x));
+    }
+};
+
 } // namespace Common
 } // namespace Dynarmic
