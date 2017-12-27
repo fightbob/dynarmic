@@ -10,6 +10,7 @@
 #include <iosfwd>
 #include <tuple>
 #include "common/common_types.h"
+#include "common/hash_util.h"
 #include "frontend/arm/FPSCR.h"
 #include "frontend/arm/PSR.h"
 
@@ -109,7 +110,7 @@ struct less<Dynarmic::IR::LocationDescriptor> {
 template <>
 struct hash<Dynarmic::IR::LocationDescriptor> {
     size_t operator()(const Dynarmic::IR::LocationDescriptor& x) const {
-        return std::hash<u64>()(x.UniqueHash());
+        return Dynarmic::Common::u64_mixer(x.UniqueHash());
     }
 };
 } // namespace std
