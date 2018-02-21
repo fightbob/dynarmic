@@ -64,10 +64,12 @@ void A64JitState::SetFpcr(u32 value) {
 
     guest_MXCSR &= 0x0000003D;
     guest_MXCSR |= 0x00001f80; // Mask all exceptions
+    x87_control_word &= 0x0C00;
 
     // RMode
-    const std::array<u32, 4> MXCSR_RMode {0x0, 0x4000, 0x2000, 0x6000};
-    guest_MXCSR |= MXCSR_RMode[(value >> 22) & 0x3];
+    const std::array<u16, 4> MXCSR_RMode {0x0, 0x4, 0x2, 0x6};
+    guest_MXCSR |= MXCSR_RMode[(value >> 22) & 0x3] << 12;
+    x87_control_word |= MXCSR_RMode[(value >> 22) & 0x3] << 10;
 
     if (Common::Bit<24>(value)) {
         guest_MXCSR |= (1 << 15); // SSE Flush to Zero
