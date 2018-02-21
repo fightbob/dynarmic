@@ -67,8 +67,8 @@ void A64JitState::SetFpcr(u32 value) {
     x87_control_word &= 0x0C00;
 
     // RMode
-    const std::array<u16, 4> MXCSR_RMode {0x0, 0x4, 0x2, 0x6};
-    guest_MXCSR |= MXCSR_RMode[(value >> 22) & 0x3] << 12;
+    const std::array<u16, 4> MXCSR_RMode {0x0, 0x2, 0x1, 0x3};
+    guest_MXCSR |= MXCSR_RMode[(value >> 22) & 0x3] << 13;
     x87_control_word |= MXCSR_RMode[(value >> 22) & 0x3] << 10;
 
     if (Common::Bit<24>(value)) {
