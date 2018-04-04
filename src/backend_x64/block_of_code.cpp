@@ -182,6 +182,7 @@ void BlockOfCode::GenRunCode() {
 void BlockOfCode::SwitchMxcsrOnEntry() {
     stmxcsr(dword[r15 + jsi.offsetof_save_host_MXCSR]);
     ldmxcsr(dword[r15 + jsi.offsetof_guest_MXCSR]);
+    fldcw(dword[r15 + jsi.offsetof_x87_control_word]);
 }
 
 void BlockOfCode::SwitchMxcsrOnExit() {
