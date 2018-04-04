@@ -93,6 +93,14 @@ static u32 GenRandomInst(u64 pc, bool is_last_inst) {
         // Manually added exceptions:
         // FMOV_float_imm for half-precision floats (QEMU doesn't have half-precision support yet).
         InstructionGenerator::AddInvalidInstruction("00011110111iiiiiiii10000000ddddd");
+        // FMADD: double-precision version known to produce inaccurate results.
+        InstructionGenerator::AddInvalidInstruction("00011111010mmmmm0aaaaannnnnddddd");
+        // FMSUB: double-precision version known to produce inaccurate results.
+        InstructionGenerator::AddInvalidInstruction("00011111010mmmmm1aaaaannnnnddddd");
+        // FNMADD: double-precision version known to produce inaccurate results.
+        InstructionGenerator::AddInvalidInstruction("00011111011mmmmm0aaaaannnnnddddd");
+        // FNMSUB: double-precision version known to produce inaccurate results.
+        InstructionGenerator::AddInvalidInstruction("00011111011mmmmm1aaaaannnnnddddd");
 
         return result;
     }();

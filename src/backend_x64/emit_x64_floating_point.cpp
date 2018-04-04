@@ -779,6 +779,7 @@ void EmitX64::EmitFPMulAdd64(EmitContext& ctx, IR::Inst* inst) {
         return;
     }
 
+    // TODO: Improve accuracy.
     FPFourOp64(code, ctx, inst, [&](Xbyak::Xmm result, Xbyak::Xmm operand2, Xbyak::Xmm operand3) {
         code.sub(rsp, 8 * 3);
         code.movsd(qword[rsp + 8 * 0], operand3);
