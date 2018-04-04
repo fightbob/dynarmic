@@ -763,10 +763,8 @@ void EmitX64::EmitFPMulAdd32(EmitContext& ctx, IR::Inst* inst) {
         code.movss(dword[rsp + 4 * 1], operand2);
         code.movss(dword[rsp + 4 * 2], result);
         code.fld(dword[rsp + 4 * 0]);
-        code.fld(dword[rsp + 4 * 1]);
-        code.fmulp();
-        code.fld(dword[rsp + 4 * 2]);
-        code.faddp();
+        code.fmul(dword[rsp + 4 * 1]);
+        code.fadd(dword[rsp + 4 * 2]);
         code.fstp(dword[rsp]);
         code.movss(result, dword[rsp]);
         code.add(rsp, 4 * 3);
@@ -787,10 +785,8 @@ void EmitX64::EmitFPMulAdd64(EmitContext& ctx, IR::Inst* inst) {
         code.movsd(qword[rsp + 8 * 1], operand2);
         code.movsd(qword[rsp + 8 * 2], result);
         code.fld(qword[rsp + 8 * 0]);
-        code.fld(qword[rsp + 8 * 1]);
-        code.fmulp();
-        code.fld(qword[rsp + 8 * 2]);
-        code.faddp();
+        code.fmul(qword[rsp + 8 * 1]);
+        code.fadd(qword[rsp + 8 * 2]);
         code.fstp(qword[rsp]);
         code.movsd(result, qword[rsp]);
         code.add(rsp, 8 * 3);
