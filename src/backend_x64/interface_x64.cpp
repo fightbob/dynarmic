@@ -217,6 +217,10 @@ void Jit::SetCpsr(u32 value) {
     return impl->jit_state.SetCpsr(value);
 }
 
+void Jit::ClearExclusiveState() {
+    impl->jit_state.exclusive_state = 0;
+}
+
 u32 Jit::Fpscr() const {
     return impl->jit_state.Fpscr();
 }
