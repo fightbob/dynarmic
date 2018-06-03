@@ -515,6 +515,7 @@ void EmitX64::EmitCallSupervisor(RegAlloc& reg_alloc, IR::Block&, IR::Inst* inst
     reg_alloc.HostCall(nullptr, args[0]);
     code->CallFunction(cb.CallSVC);
     code->CallFunction(cb.GetTicksRemaining);
+    code->mov(code->byte[r15 + offsetof(JitState, exclusive_state)], u8(0));
     code->mov(qword[r15 + offsetof(JitState, cycles_to_run)], code->ABI_RETURN);
     code->mov(qword[r15 + offsetof(JitState, cycles_remaining)], code->ABI_RETURN);
     code->SwitchMxcsrOnEntry();
