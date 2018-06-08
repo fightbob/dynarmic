@@ -260,6 +260,7 @@ public:
     U32U64 FPMul(const U32U64& a, const U32U64& b, bool fpscr_controlled);
     U32U64 FPMulAdd(const U32U64& a, const U32U64& b, const U32U64& c, bool fpscr_controlled);
     U32U64 FPNeg(const U32U64& a);
+    U32U64 FPRecipSqrtEstimate(const U32U64& a);
     U32U64 FPSqrt(const U32U64& a);
     U32U64 FPSub(const U32U64& a, const U32U64& b, bool fpscr_controlled);
     U32 FPDoubleToSingle(const U64& a, bool fpscr_controlled);

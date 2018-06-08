@@ -1423,6 +1423,14 @@ U32U64 IREmitter::FPNeg(const U32U64& a) {
     }
 }
 
+U32U64 IREmitter::FPRecipSqrtEstimate(const U32U64& a) {
+    if (a.GetType() == Type::U32) {
+        return Inst<U32>(Opcode::FPRecipSqrtEstimate32, a);
+    } else {
+        return Inst<U64>(Opcode::FPRecipSqrtEstimate64, a);
+    }
+}
+
 U32U64 IREmitter::FPSqrt(const U32U64& a) {
     if (a.GetType() == Type::U32) {
         return Inst<U32>(Opcode::FPSqrt32, a);

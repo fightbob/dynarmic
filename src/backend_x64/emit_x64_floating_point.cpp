@@ -779,6 +779,20 @@ void EmitX64::EmitFPMulAdd64(EmitContext& ctx, IR::Inst* inst) {
     });
 }
 
+void EmitX64::EmitFPRecipSqrtEstimate32(EmitContext& ctx, IR::Inst* inst) {
+    // TODO: Improve accuracy.
+    FPTwoOp32(code, ctx, inst, &Xbyak::CodeGenerator::rsqrtss);
+}
+
+void EmitX64::EmitFPRecipSqrtEstimate64(EmitContext& ctx, IR::Inst* inst) {
+    // TODO: Improve accuracy.
+    FPTwoOp64(code, ctx, inst, [&](const Xbyak::Xmm& result){
+        code.cvtsd2ss(result, result);
+        code.rsqrtss(result, result);
+        code.cvtss2sd(result, result);
+    });
+}
+
 void EmitX64::EmitFPSqrt32(EmitContext& ctx, IR::Inst* inst) {
     FPTwoOp32(code, ctx, inst, &Xbyak::CodeGenerator::sqrtss);
 }
