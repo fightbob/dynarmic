@@ -59,4 +59,13 @@ bool TranslatorVisitor::UCVTF_int_2(bool sz, Vec Vn, Vec Vd) {
     return true;
 }
 
+bool TranslatorVisitor::FRSQRTE_2(bool sz, Vec Vn, Vec Vd) {
+    const size_t esize = sz ? 64 : 32;
+
+    const IR::U32U64 element = V_scalar(esize, Vn);
+    const IR::U32U64 result = ir.FPRecipSqrtEstimate(element);
+    V_scalar(esize, Vd, result);
+    return true;
+}
+
 } // namespace Dynarmic::A64
