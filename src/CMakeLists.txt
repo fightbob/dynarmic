@@ -14,6 +14,7 @@ add_library(dynarmic
     common/crc32.cpp
     common/crc32.h
     common/fp_util.h
+    common/fp/info.h
     common/intrusive_list.h
     common/iterator_util.h
     common/llvm_disassemble.cpp
