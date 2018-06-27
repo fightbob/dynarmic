@@ -15,6 +15,8 @@ add_library(dynarmic
     common/crc32.h
     common/fp/fpsr.h
     common/fp/info.h
+    common/fp/process_exception.cpp
+    common/fp/process_exception.h
     common/fp/rounding_mode.h
     common/fp/util.h
     common/intrusive_list.h
