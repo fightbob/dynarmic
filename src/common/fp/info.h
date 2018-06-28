@@ -28,6 +28,10 @@ struct FPInfo<u32> {
     static constexpr int exponent_min = -126;
     static constexpr int exponent_max = 127;
     static constexpr int exponent_bias = 127;
+
+    static u32 Zero(bool sign) { return sign ? sign_mask : 0; }
+    static u32 Infinity(bool sign) { return exponent_mask | Zero(sign); }
+    static u32 MaxNormal(bool sign) { return (exponent_mask - 1) | Zero(sign); }
 };
 
 template<>
@@ -45,6 +49,10 @@ struct FPInfo<u64> {
     static constexpr int exponent_min = -1022;
     static constexpr int exponent_max = 1023;
     static constexpr int exponent_bias = 1023;
+
+    static u64 Zero(bool sign) { return sign ? sign_mask : 0; }
+    static u64 Infinity(bool sign) { return exponent_mask | Zero(sign); }
+    static u64 MaxNormal(bool sign) { return (exponent_mask - 1) | Zero(sign); }
 };
 
 } // namespace Dynarmic::FP 
