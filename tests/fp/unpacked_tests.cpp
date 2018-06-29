@@ -61,7 +61,7 @@ TEST_CASE("FPUnpack<->FPRound Round-trip Tests", "[fp]") {
     for (size_t count = 0; count < 100000; count++) {
         FPSR fpsr;
         const u32 input = RandInt(0, 1) == 0 ? RandInt<u32>(0x00000001, 0x7F800000) : RandInt<u32>(0x80000001, 0xFF800000);
-        const auto [type, sign, intermediate] = FPUnpack<u32>(input, fpcr, fpsr);
+        const auto intermediate = std::get<2>(FPUnpack<u32>(input, fpcr, fpsr));
         const u32 output = FPRound<u32>(intermediate, fpcr, fpsr);
 
         INFO("Count: " << count);
