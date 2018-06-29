@@ -32,7 +32,7 @@ T LogicalShiftLeft(T value, int shift_amount) {
 }
 
 template<>
-u128 LogicalShiftLeft(u128 value, int shift_amount) {
+inline u128 LogicalShiftLeft(u128 value, int shift_amount) {
     return value << shift_amount;
 }
 
@@ -53,7 +53,7 @@ T LogicalShiftRight(T value, int shift_amount) {
 }
 
 template<>
-u128 LogicalShiftRight(u128 value, int shift_amount) {
+inline u128 LogicalShiftRight(u128 value, int shift_amount) {
     return value >> shift_amount;
 }
 
