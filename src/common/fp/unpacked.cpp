@@ -131,7 +131,14 @@ FPT FPRoundBase(FPUnpacked<MantissaT> op, FPCR fpcr, RoundingMode rounding, FPSR
     }
 
     FPT result = 0;
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4127) // C4127: conditional expression is constant
+#endif
     if (!isFP16 || !fpcr.AHP()) {
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
         constexpr int max_biased_exp = (1 << E) - 1;
         if (biased_exp >= max_biased_exp) {
             result = overflow_to_inf ? FPInfo<FPT>::Infinity(sign) : FPInfo<FPT>::MaxNormal(sign);
