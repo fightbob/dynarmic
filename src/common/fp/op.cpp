@@ -43,12 +43,9 @@ u64 FPToFixed(size_t ibits, FPT op, size_t fbits, bool unsigned_, FPCR fpcr, Rou
     // value *= 2.0^fbits
     value.exponent += fbits;
 
-    u64 int_result = Safe::LogicalShiftLeft(value.mantissa, value.exponent);
-    if (value.sign) {
-        int_result = -int_result;
-    }
-
-    const ResidualError error = ResidualErrorOnRightShift(value.mantissa, -value.exponent);
+    u64 int_result = value.sign ? -static_cast<u64>(value.mantissa) : static_cast<u64>(value.mantissa);
+    const ResidualError error = ResidualErrorOnRightShift(int_result, -value.exponent);
+    int_result = Safe::ArithmeticShiftLeft(int_result, value.exponent);
 
     bool round_up = false;
     switch (rounding) {
@@ -62,10 +59,10 @@ u64 FPToFixed(size_t ibits, FPT op, size_t fbits, bool unsigned_, FPCR fpcr, Rou
         round_up = false;
         break;
     case RoundingMode::TowardsZero:
-        round_up = error != ResidualError::Zero && int_result < 0;
+        round_up = error != ResidualError::Zero && Common::MostSignificantBit(int_result);
         break;
     case RoundingMode::ToNearest_TieAwayFromZero:
-        round_up = error > ResidualError::Half || (error == ResidualError::Half && int_result >= 0);
+        round_up = error > ResidualError::Half || (error == ResidualError::Half && !Common::MostSignificantBit(int_result));
         break;
     case RoundingMode::ToOdd:
         UNREACHABLE();
