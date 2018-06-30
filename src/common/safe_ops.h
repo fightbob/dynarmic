@@ -96,4 +96,9 @@ T ArithmeticShiftRight(T value, int shift_amount) {
     return static_cast<T>(signed_value >> shift_amount);
 }
 
+template<typename T>
+T ArithmeticShiftRightDouble(T top, T bottom, int shift_amount) {
+    return ArithmeticShiftLeft(top, int(Common::BitSize<T>()) - shift_amount) | LogicalShiftRight(bottom, shift_amount);
+}
+
 } // namespace Dynarmic::Safe
