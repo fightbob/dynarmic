@@ -42,7 +42,7 @@ TEST_CASE("ResidualErrorOnRightShift Randomized", "[fp]") {
 
         const ResidualError result = ResidualErrorOnRightShift(mantissa, shift);
 
-        const u64 calculated_error = Safe::LogicalShiftRightDouble(u64(mantissa), u64(0), shift);
+        const u64 calculated_error = Safe::ArithmeticShiftRightDouble(Common::SignExtend<32, u64>(mantissa), u64(0), shift);
         const ResidualError expected_result = [&]{
             constexpr u64 half_error = 0x8000'0000'0000'0000ull;
             if (calculated_error == 0) {
